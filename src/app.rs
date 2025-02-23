@@ -2,7 +2,9 @@ use std::error;
 
 use ratatui::{buffer::Buffer, layout::Rect};
 
-use crate::pages::StartupPage;
+use stick::Controller;
+
+use crate::pages::*;
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -19,6 +21,8 @@ pub struct App {
     pub display_y: Option<u16>,
     pub page: Pages,
     startup_page: StartupPage,
+    terminal: Terminal,
+    pub controller: Option<stick::Controller>,
 }
 
 impl Default for App {
@@ -30,6 +34,8 @@ impl Default for App {
             display_y: None,
             page: Pages::Startup,
             startup_page: StartupPage::new(),
+            terminal: Terminal::new(),
+            controller: None,
         }
     }
 }
@@ -96,4 +102,10 @@ impl App {
             Pages::Startup => self.startup_page.render(area, buf),
         }
     }
+
+    pub fn render_terminal_page(&self, area: Rect, buf: &mut Buffer) {
+         self.terminal.render(area, buf);
+    }
+
+
 }

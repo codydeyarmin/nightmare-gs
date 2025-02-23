@@ -373,6 +373,7 @@ dependencies = [
  "crossterm",
  "futures",
  "ratatui",
+ "stick",
  "tokio",
 ]
 
@@ -563,6 +564,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
+name = "smelling_salts"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0ac3b24afd6d59663abbd40d5b99d281d19413e70f43dc5277dfda314c1647b"
+
+[[package]]
 name = "socket2"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -577,6 +584,17 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stick"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e60a95d77ca18122ca8cc759b0dcde33274e68af001d899abb732a1d9c6c0cea"
+dependencies = [
+ "log",
+ "smelling_salts",
+ "winapi",
+]
 
 [[package]]
 name = "strum"
