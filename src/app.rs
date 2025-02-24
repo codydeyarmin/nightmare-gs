@@ -9,8 +9,6 @@ use crate::pages::*;
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
 
-pub const MIN_CONTROL_PANEL_HEIGHT: u16 = 15;
-
 /// Application.
 #[derive(Debug)]
 pub struct App {
@@ -21,7 +19,7 @@ pub struct App {
     pub display_y: Option<u16>,
     pub page: Pages,
     startup_page: StartupPage,
-    terminal: Terminal,
+    control_panel: ControlPanel,
     pub controller: Option<stick::Controller>,
 }
 
@@ -34,7 +32,7 @@ impl Default for App {
             display_y: None,
             page: Pages::Startup,
             startup_page: StartupPage::new(),
-            terminal: Terminal::new(),
+            control_panel: ControlPanel::new(),
             controller: None,
         }
     }
@@ -97,6 +95,14 @@ impl App {
         self.display_y
     }
 
+    pub fn control_panel_next_item(&mut self) {
+        self.control_panel.next_item();
+    }
+
+    pub fn control_panel_previous_item(&mut self) {
+        self.control_panel.previous_item();
+    }
+
     pub fn render_current_page(&self, area: Rect, buf: &mut Buffer) {
         match self.page {
             Pages::Startup => self.startup_page.render(area, buf),
@@ -104,7 +110,7 @@ impl App {
     }
 
     pub fn render_terminal_page(&self, area: Rect, buf: &mut Buffer) {
-         self.terminal.render(area, buf);
+         self.control_panel.render(area, buf);
     }
 
 

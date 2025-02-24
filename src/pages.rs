@@ -1,5 +1,5 @@
 mod startup;
-mod terminal;
+mod controlpanel;
 
 pub use startup::StartupPage;
-pub use terminal::Terminal;
+pub use controlpanel::ControlPanel;

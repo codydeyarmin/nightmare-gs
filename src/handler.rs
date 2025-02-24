@@ -22,6 +22,13 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.decrement_counter();
         }
         // Other handlers you could add here.
+        KeyCode::Up => {
+            app.control_panel_next_item();
+        }
+
+        KeyCode::Down => {
+            app.control_panel_previous_item();
+        }
         _ => {}
     }
     Ok(())
