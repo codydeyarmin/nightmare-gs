@@ -70,18 +70,6 @@ impl App {
         self.mode = Mode::Quit;
     }
 
-    pub fn increment_counter(&mut self) {
-        if let Some(res) = self.counter.checked_add(1) {
-            self.counter = res;
-        }
-    }
-
-    pub fn decrement_counter(&mut self) {
-        if let Some(res) = self.counter.checked_sub(1) {
-            self.counter = res;
-        }
-    }
-
     pub fn set_x_y(&mut self, x: u16, y: u16) {
         self.display_x = Some(x);
         self.display_y = Some(y);
@@ -101,6 +89,17 @@ impl App {
 
     pub fn control_panel_previous_item(&mut self) {
         self.control_panel.previous_item();
+    }
+
+    pub fn control_panel_next_window(&mut self){
+        self.control_panel.next_window();
+    }
+    pub fn control_panel_prev_window(&mut self){
+        self.control_panel.prev_window();
+    }
+
+    pub fn control_panel_select(&mut self){
+        self.control_panel.select();
     }
 
     pub fn render_current_page(&self, area: Rect, buf: &mut Buffer) {

@@ -18,6 +18,7 @@ pub struct Config {
     short_text: String,
     full_text: Option<String>, 
     option: ConfigOption,
+    //on_select: 
 }
 
 impl Config{
@@ -53,7 +54,7 @@ pub struct Window {
     content: Vec<Config>,
     window_selected: bool,
     highlighted_content: u16,
-    selected_content: u16,
+    selected_content: Option<u16>,
 }
 
 impl Window {
@@ -63,7 +64,7 @@ impl Window {
             content: Vec::new(),
             window_selected: false,
             highlighted_content: 0,
-            selected_content: 0,
+            selected_content: None,
         }
     }
 
@@ -95,8 +96,10 @@ impl Window {
             let mut style = Style::default();
             if idx == self.highlighted_content {
                 style = style.light_cyan();
-            } else if idx == self.selected_content {
-                style = style.red();
+            } else if let Some(selected_content) = self.selected_content {
+                if idx == selected_content {
+                    style = style.red();
+                }
             }
             let line = Line::from(i.get_short_text()).style(style);
             text.push_line(line);
@@ -105,11 +108,13 @@ impl Window {
         }
         let mut next_panes = next_panes.clone();
         if let Some(pane) = next_panes.pop(){
-            match &self.content[self.selected_content as usize].option{
-                ConfigOption::Window(window) => {
-                    window.render(pane, buf, next_panes);
-                },
-                _ => { }
+            if let Some(selected_content) = self.selected_content{
+                match &self.content[selected_content as usize].option{
+                    ConfigOption::Window(window) => {
+                        window.render(pane, buf, next_panes);
+                    },
+                    _ => { }
+                }
             }
         }
         text.render(inner_area, buf);
@@ -122,12 +127,15 @@ impl Window {
                 self.highlighted_content = (self.highlighted_content + 1) % self.content.len() as u16;
             } 
         } else {
-            match &mut self.content[self.selected_content as usize].option{
-                ConfigOption::Window(window) => {
-                    window.next_item()
-                },
-                _ => { panic!("Should hit this in window::next_item()")}
+            if let Some(selected_content) = self.selected_content{
+                match &mut self.content[selected_content as usize].option{
+                    ConfigOption::Window(window) => {
+                        window.next_item()
+                    },
+                    _ => { panic!("Should hit this in window::next_item()")}
+                }
             }
+            
         }
         
         
@@ -141,11 +149,13 @@ impl Window {
                 self.highlighted_content = self.highlighted_content - 1;
             }
         } else {
-            match &mut self.content[self.selected_content as usize].option{
-                ConfigOption::Window(window) => {
-                    window.previous_item()
-                },
-                _ => { panic!("Should hit this in window::previous_item()")}
+            if let Some(selected_content) = self.selected_content{
+                match &mut self.content[selected_content as usize].option{
+                    ConfigOption::Window(window) => {
+                        window.previous_item()
+                    },
+                    _ => { panic!("Should hit this in window::previous_item()")}
+                }
             }
         }
         
@@ -153,28 +163,34 @@ impl Window {
 
     pub fn select(&mut self){
         if self.window_selected {
-            self.selected_content = self.highlighted_content;
+            self.selected_content = Some(self.highlighted_content);
         } else {
-            match &mut self.content[self.selected_content as usize].option{
-                ConfigOption::Window(window) => {
-                    window.select()
-                },
-                _ => { panic!("Should hit this in window::select()")}
+            if let Some(selected_content) = self.selected_content{
+                match &mut self.content[selected_content as usize].option{
+                    ConfigOption::Window(window) => {
+                        window.select()
+                    },
+                    _ => { panic!("Should hit this in window::select()")}
+                }
             }
         }
     }
 
     pub fn select_window(&mut self, selected_window: u16) -> u16{
         if selected_window > 0 {
-            match &mut self.content[self.selected_content as usize].option{
-                ConfigOption::Window(window) => {
-                    self.window_selected = false;
-                    window.select_window(selected_window - 1)
-                },
-                _ => {
-                    self.window_selected = true;
-                    return 0
-                },
+            if let Some(selected_content) = self.selected_content{
+                match &mut self.content[selected_content as usize].option{
+                    ConfigOption::Window(window) => {
+                        self.window_selected = false;
+                        window.select_window(selected_window - 1)
+                    },
+                    _ => {
+                        self.window_selected = true;
+                        return 0
+                    },
+                }
+            } else{
+                return 0
             }
         } else {
             self.window_selected = true;
@@ -199,11 +215,14 @@ impl ControlPanel {
             .with_configoption(ConfigOption::default())
             .with_fulltext("List all controllers connected to the machine".to_string())
         );
-        configs.push(
-            Config::new("Connect Controller".to_string())
+        configs.push({
+            let mut config = Config::new("Connect Controller".to_string())
             .with_configoption(ConfigOption::default())
-            .with_fulltext("List all controllers connected to the machine".to_string())
-        );
+            .with_fulltext("List all controllers connected to the machine".to_string());
+            config.option = ConfigOption::Window(Window::new("Controller connect window".to_string())
+            .with_configs(vec![Config::new("Controller to be connected".to_string())]));
+            config
+        });
 
         let window = Window::new("Main menu".to_string()).with_configs(configs).as_selected();
 
@@ -239,6 +258,18 @@ impl ControlPanel {
     
     pub fn previous_item(&mut self){
         self.main_window.previous_item();
+    }
+
+    pub fn select(&mut self){
+        self.main_window.select();
+    }
+
+    pub fn next_window(&mut self){
+        self.selected_window = self.main_window.select_window(self.selected_window + 1);
+    }
+
+    pub fn prev_window(&mut self){
+        self.selected_window = self.main_window.select_window(self.selected_window.saturating_sub(1));
     }
 
 }

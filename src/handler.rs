@@ -16,10 +16,10 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
         }
         // Counter handlers
         KeyCode::Right => {
-            app.increment_counter();
+            app.control_panel_next_window();
         }
         KeyCode::Left => {
-            app.decrement_counter();
+            app.control_panel_prev_window();
         }
         // Other handlers you could add here.
         KeyCode::Up => {
@@ -28,6 +28,10 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
 
         KeyCode::Down => {
             app.control_panel_previous_item();
+        }
+
+        KeyCode::Enter => {
+            app.control_panel_select();
         }
         _ => {}
     }
