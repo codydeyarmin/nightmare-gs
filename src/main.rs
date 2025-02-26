@@ -12,9 +12,10 @@ use crate::{
 pub mod app;
 pub mod event;
 pub mod handler;
-mod pages;
+pub mod pages;
 pub mod tui;
 pub mod ui;
+pub mod page_functions;
 
 #[tokio::main]
 async fn main() -> AppResult<()> {

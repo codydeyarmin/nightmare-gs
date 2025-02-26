@@ -2,7 +2,6 @@ use std::error;
 
 use ratatui::{buffer::Buffer, layout::Rect};
 
-use stick::Controller;
 
 use crate::pages::*;
 

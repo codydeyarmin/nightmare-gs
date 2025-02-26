@@ -5,7 +5,9 @@ use ratatui::{
     buffer::Buffer, layout::{Alignment, Constraint, Layout, Rect}, style::{Color, Style, Stylize}, text::{Line, Text}, widgets::{Block, BorderType, Paragraph, Widget,}
 };
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+use crate::page_functions::*;
+
+#[derive(Debug, Default, PartialEq, Eq)]
 pub enum ConfigOption{
     #[default]
     Text,
@@ -13,17 +15,33 @@ pub enum ConfigOption{
     Window(Window),
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
+pub enum ConfigFnOptions{
+    None(fn()),
+    NoneToWindow(fn() -> Window),
+    WindowToWindow(fn(window: &Window) -> Window),
+}
+
+fn hello_world(){println!("Hello World!");}
+
+impl Default for ConfigFnOptions{
+    fn default() -> ConfigFnOptions {
+        ConfigFnOptions::None(hello_world)
+    }
+}
+
+
+#[derive(Debug,  Default, PartialEq, Eq)]
 pub struct Config {
     short_text: String,
     full_text: Option<String>, 
     option: ConfigOption,
-    //on_select: 
+    on_select: Option<ConfigFnOptions>
 }
 
 impl Config{
     pub fn new(name: String) -> Self {
-        Self { short_text: name, full_text: None, option: ConfigOption::default() }
+        Self { short_text: name, full_text: None, option: ConfigOption::default(), on_select: None }
     }
 
     pub fn with_configoption(mut self, option: ConfigOption) -> Self {
@@ -33,6 +51,11 @@ impl Config{
 
     pub fn with_fulltext(mut self, full_text: String) -> Self {
         self.full_text = Some(full_text);
+        self
+    }
+
+    pub fn with_on_select(mut self, on_select:ConfigFnOptions) -> Self {
+        self.on_select = Some(on_select);
         self
     }
 
@@ -46,9 +69,11 @@ impl Config{
             None => self.get_short_text(),
         }
     }
+
+    
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct Window {
     name: String,
     content: Vec<Config>,
@@ -69,7 +94,7 @@ impl Window {
     }
 
     pub fn with_configs(mut self, configs: Vec<Config>) -> Self {
-        self.content = configs.clone();
+        self.content = configs;
         self
     }
 
@@ -177,30 +202,37 @@ impl Window {
     }
 
     pub fn select_window(&mut self, selected_window: u16) -> u16{
-        if selected_window > 0 {
-            if let Some(selected_content) = self.selected_content{
-                match &mut self.content[selected_content as usize].option{
-                    ConfigOption::Window(window) => {
+        if let Some(selected_content) = self.selected_content{
+            match &mut self.content[selected_content as usize].option{
+                ConfigOption::Window(window) => {
+                    if selected_window == 0 {
+                        self.window_selected = true;
+                        window.unselect_window();
+                        return 0
+
+                    } else {
                         self.window_selected = false;
                         window.select_window(selected_window - 1)
-                    },
-                    _ => {
-                        self.window_selected = true;
-                        return 0
-                    },
-                }
-            } else{
-                return 0
+                    }               
+                },
+                _ => {
+                    self.window_selected = true;
+                    return 0
+                },
             }
-        } else {
+        } else{
             self.window_selected = true;
             return 0
         }
     }
 
+    pub fn unselect_window(&mut self){
+        self.window_selected = false;
+    }
+
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ControlPanel {
     description: String,
     main_window: Window,
@@ -210,17 +242,21 @@ pub struct ControlPanel {
 impl ControlPanel {
     pub fn new() -> Self {
         let mut configs: Vec<Config> = Vec::new();
-        configs.push(
-            Config::new("List Controllers".to_string())
-            .with_configoption(ConfigOption::default())
-            .with_fulltext("List all controllers connected to the machine".to_string())
-        );
+        configs.push({
+            let mut config = Config::new("List Controllers".to_string())
+                .with_configoption(ConfigOption::default())
+                .with_fulltext("List all controllers connected to the machine".to_string());
+            config.option = ConfigOption::Window(Window::new("Controller list window".to_string())
+                .with_configs(vec![Config::new("Controller A".to_string()),
+                Config::new("Controller =B".to_string())]));
+            config
+        });
         configs.push({
             let mut config = Config::new("Connect Controller".to_string())
-            .with_configoption(ConfigOption::default())
-            .with_fulltext("List all controllers connected to the machine".to_string());
+                .with_configoption(ConfigOption::default())
+                .with_fulltext("List all controllers connected to the machine".to_string());
             config.option = ConfigOption::Window(Window::new("Controller connect window".to_string())
-            .with_configs(vec![Config::new("Controller to be connected".to_string())]));
+                .with_configs(vec![Config::new("Controller to be connected".to_string())]));
             config
         });
 
