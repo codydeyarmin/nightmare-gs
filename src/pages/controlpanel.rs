@@ -7,6 +7,8 @@ use ratatui::{
 
 use crate::page_functions::*;
 
+use super::Page;
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub enum ConfigOption{
     #[default]
@@ -15,14 +17,19 @@ pub enum ConfigOption{
     Window(Window),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ConfigFnOptions{
-    None(fn()),
-    NoneToWindow(fn() -> Window),
-    WindowToWindow(fn(window: &Window) -> Window),
+    None(fn() -> Option<ControlResult>),
+    NoneToWindow(fn() -> (Window, Option<ControlResult>)),
+    WindowToWindow(fn(window: &Window) -> (Window, Option<ControlResult>)),
+    ConfigToNone(fn(config: &Config) -> Option<ControlResult>),
+    ConfigToWindow(fn(config: &Config) -> (Window, Option<ControlResult>))
 }
 
-fn hello_world(){println!("Hello World!");}
+fn hello_world() -> Option<ControlResult>{
+    println!("Hello World!");
+    None
+}
 
 impl Default for ConfigFnOptions{
     fn default() -> ConfigFnOptions {
@@ -119,14 +126,18 @@ impl Window {
         let mut idx: u16 = 0;
         for i in &self.content {
             let mut style = Style::default();
+            let mut checkbox = "[ ] ";
             if idx == self.highlighted_content {
                 style = style.light_cyan();
-            } else if let Some(selected_content) = self.selected_content {
+            }
+            if let Some(selected_content) = self.selected_content {
                 if idx == selected_content {
-                    style = style.red();
+                    checkbox = "[x] ";
                 }
             }
-            let line = Line::from(i.get_short_text()).style(style);
+            let line = Line::from(
+                format!("{}{}", checkbox, i.get_short_text())      
+                ).style(style);
             text.push_line(line);
 
             idx += 1;
@@ -147,7 +158,7 @@ impl Window {
     }
 
     pub fn next_item(&mut self) {
-        if self.window_selected {
+        if self.window_selected && self.content.len() != 0 {
             if self.window_selected {
                 self.highlighted_content = (self.highlighted_content + 1) % self.content.len() as u16;
             } 
@@ -169,9 +180,9 @@ impl Window {
     pub fn previous_item(&mut self) {
         if self.window_selected {
             if self.highlighted_content == 0 {
-                self.highlighted_content = self.content.len() as u16 - 1;
+                self.highlighted_content = self.content.len().saturating_sub(1) as u16;
             }else {
-                self.highlighted_content = self.highlighted_content - 1;
+                self.highlighted_content = self.highlighted_content.saturating_sub(1);
             }
         } else {
             if let Some(selected_content) = self.selected_content{
@@ -186,9 +197,39 @@ impl Window {
         
     }
 
-    pub fn select(&mut self){
+    pub fn select(&mut self) -> Option<ControlResult>{
         if self.window_selected {
             self.selected_content = Some(self.highlighted_content);
+            if let Some(selected_content) = self.selected_content{
+                if let Some(config_fn_option) = self.content[selected_content as usize].on_select.clone(){
+                    match config_fn_option {
+                        ConfigFnOptions::NoneToWindow(function) => {
+                            let config = &mut self.content[selected_content as usize];
+                            let (window, result) = function();
+                            config.option = ConfigOption::Window(window);
+                            result
+                        },
+                        ConfigFnOptions::ConfigToWindow(function) => {
+                            let config = &mut self.content[selected_content as usize];
+                            let (window, result) = function(config);
+                            config.option = ConfigOption::Window(window);
+                            result
+                        },
+                        ConfigFnOptions::WindowToWindow(function) =>{
+                            let (window, result) = function(self);
+                            let config = &mut self.content[selected_content as usize];
+                            config.option = ConfigOption::Window(window);
+                            result
+                        }
+
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         } else {
             if let Some(selected_content) = self.selected_content{
                 match &mut self.content[selected_content as usize].option{
@@ -197,6 +238,8 @@ impl Window {
                     },
                     _ => { panic!("Should hit this in window::select()")}
                 }
+            } else {
+                None
             }
         }
     }
@@ -232,6 +275,11 @@ impl Window {
 
 }
 
+pub enum ControlResult {
+    SetController(String),
+    ChangePage(Page),
+}
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct ControlPanel {
     description: String,
@@ -246,17 +294,21 @@ impl ControlPanel {
             let mut config = Config::new("List Controllers".to_string())
                 .with_configoption(ConfigOption::default())
                 .with_fulltext("List all controllers connected to the machine".to_string());
-            config.option = ConfigOption::Window(Window::new("Controller list window".to_string())
-                .with_configs(vec![Config::new("Controller A".to_string()),
-                Config::new("Controller =B".to_string())]));
+            config.on_select = Some(ConfigFnOptions::NoneToWindow(list_controllers_window));
             config
         });
         configs.push({
             let mut config = Config::new("Connect Controller".to_string())
                 .with_configoption(ConfigOption::default())
                 .with_fulltext("List all controllers connected to the machine".to_string());
-            config.option = ConfigOption::Window(Window::new("Controller connect window".to_string())
-                .with_configs(vec![Config::new("Controller to be connected".to_string())]));
+            config.on_select = Some(ConfigFnOptions::NoneToWindow(select_controller_window));
+            config
+        });
+        configs.push({
+            let mut config = Config::new("Select Page".to_string())
+                .with_configoption(ConfigOption::default())
+                .with_fulltext("Select the currently displayed telemetry page".to_string());
+            config.on_select = Some(ConfigFnOptions::NoneToWindow(list_pages));
             config
         });
 
@@ -296,8 +348,8 @@ impl ControlPanel {
         self.main_window.previous_item();
     }
 
-    pub fn select(&mut self){
-        self.main_window.select();
+    pub fn select(&mut self) -> Option<ControlResult>{
+        return self.main_window.select();
     }
 
     pub fn next_window(&mut self){

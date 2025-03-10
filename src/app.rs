@@ -16,10 +16,12 @@ pub struct App {
     pub counter: u32,
     pub display_x: Option<u16>,
     pub display_y: Option<u16>,
-    pub page: Pages,
+    pub page: Page,
     startup_page: StartupPage,
+    controller_telem: ControllerTelem,
     control_panel: ControlPanel,
     pub controller: Option<stick::Controller>,
+    //pub controller_task: Option<
 }
 
 impl Default for App {
@@ -29,9 +31,10 @@ impl Default for App {
             counter: 0,
             display_x: None,
             display_y: None,
-            page: Pages::Startup,
+            page: Page::Startup,
             startup_page: StartupPage::new(),
             control_panel: ControlPanel::new(),
+            controller_telem: ControllerTelem::new(),
             controller: None,
         }
     }
@@ -43,12 +46,6 @@ pub enum Mode {
     Running,
     Destroy,
     Quit,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum Pages {
-    #[default]
-    Startup,
 }
 
 impl App {
@@ -98,12 +95,18 @@ impl App {
     }
 
     pub fn control_panel_select(&mut self){
-        self.control_panel.select();
+        if let Some(result) = self.control_panel.select(){
+            match result {
+                ControlResult::ChangePage(page) => self.change_page(page),
+                ControlResult::SetController(controller) => (),
+            }
+        }
     }
 
     pub fn render_current_page(&self, area: Rect, buf: &mut Buffer) {
         match self.page {
-            Pages::Startup => self.startup_page.render(area, buf),
+            Page::Startup => self.startup_page.render(area, buf),
+            Page::ControllerTelem => self.controller_telem.render(area, buf),
         }
     }
 
@@ -111,5 +114,9 @@ impl App {
          self.control_panel.render(area, buf);
     }
 
+
+    fn change_page(&mut self, page: Page){
+        self.page = page;
+    }
 
 }

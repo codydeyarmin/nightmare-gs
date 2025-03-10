@@ -22,11 +22,11 @@ pub fn handle_key_events(key_event: KeyEvent, app: &mut App) -> AppResult<()> {
             app.control_panel_prev_window();
         }
         // Other handlers you could add here.
-        KeyCode::Up => {
+        KeyCode::Down => {
             app.control_panel_next_item();
         }
 
-        KeyCode::Down => {
+        KeyCode::Up => {
             app.control_panel_previous_item();
         }
 
