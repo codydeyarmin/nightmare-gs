@@ -3,11 +3,11 @@ use std::time::Duration;
 use crossterm::event::{Event as CrosstermEvent, KeyEvent, MouseEvent};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
-
-use crate::app::AppResult;
+use gilrs::EventType as GamepadEventType;
+use crate::{app::AppResult, tasks::DriverEvent};
 
 /// Terminal events.
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub enum Event {
     /// Terminal tick.
     Tick,
@@ -17,6 +17,10 @@ pub enum Event {
     Mouse(MouseEvent),
     /// Terminal resize.
     Resize(u16, u16),
+    /// Controller Event
+    Controller(GamepadEventType),
+    /// Driver Event
+    Driver(DriverEvent),
 }
 
 /// Terminal event handler.
@@ -79,6 +83,10 @@ impl EventHandler {
             receiver,
             handler,
         }
+    }
+
+    pub fn get_sender(&self) -> &mpsc::UnboundedSender<Event> {
+      &self.sender
     }
 
     /// Receive the next event from the handler thread.

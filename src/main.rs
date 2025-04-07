@@ -16,6 +16,7 @@ pub mod pages;
 pub mod tui;
 pub mod ui;
 pub mod page_functions;
+pub mod tasks;
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
@@ -26,6 +27,7 @@ async fn main() -> AppResult<()> {
     let backend = CrosstermBackend::new(io::stdout());
     let terminal = Terminal::new(backend)?;
     let events = EventHandler::new(250);
+    app.add_sender(events.get_sender());
     let mut tui = Tui::new(terminal, events);
     tui.init()?;
 
@@ -40,6 +42,12 @@ async fn main() -> AppResult<()> {
             Event::Mouse(_) => {}
             Event::Resize(x, y) => {
                 app.set_x_y(x, y);
+            }
+            Event::Controller(event) => {
+                 app.handle_controller_event(event);
+            },
+            Event::Driver(event) => {
+                app.handle_driver_event(event)
             }
         }
     }

@@ -4,8 +4,6 @@ mod controllertelem;
 
 pub use startup::StartupPage;
 pub use controllertelem::ControllerTelem;
-// pub use controlpanel::ControlPanel;
-// pub use controlpanel::Window;
 pub use controlpanel::*;
 use strum_macros::{Display, EnumIter, EnumString};
 

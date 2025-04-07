@@ -1,11 +1,9 @@
-use std::default;
 
-use futures::select;
 use ratatui::{
-    buffer::Buffer, layout::{Alignment, Constraint, Layout, Rect}, style::{Color, Style, Stylize}, text::{Line, Text}, widgets::{Block, BorderType, Paragraph, Widget,}
+    buffer::Buffer, layout::{Alignment, Constraint, Layout, Rect}, style::{ Style, Stylize}, text::{Line, Text}, widgets::{Block, BorderType, Widget,}
 };
 
-use crate::page_functions::*;
+use crate::{page_functions::*, tasks::{DriverEvent, DriverTask}};
 
 use super::Page;
 
@@ -80,6 +78,7 @@ impl Config{
     
 }
 
+
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Window {
     name: String,
@@ -87,6 +86,7 @@ pub struct Window {
     window_selected: bool,
     highlighted_content: u16,
     selected_content: Option<u16>,
+
 }
 
 impl Window {
@@ -221,7 +221,12 @@ impl Window {
                             config.option = ConfigOption::Window(window);
                             result
                         }
-
+                        ConfigFnOptions::ConfigToNone(function) =>{
+                            match self.content.get(selected_content as usize) {
+                                Some(config) => function(config),
+                                None => None,
+                            }
+                        }
                         _ => None,
                     }
                 } else {
@@ -278,6 +283,7 @@ impl Window {
 pub enum ControlResult {
     SetController(String),
     ChangePage(Page),
+    DriverChange(DriverEvent)
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -311,6 +317,14 @@ impl ControlPanel {
             config.on_select = Some(ConfigFnOptions::NoneToWindow(list_pages));
             config
         });
+        configs.push({
+            let mut config = Config::new("Driver Port Control".to_string())
+                .with_configoption(ConfigOption::default())
+                .with_fulltext("List and select Driver Port".to_string());
+            config.on_select = Some(ConfigFnOptions::NoneToWindow(DriverTask::list_ports));
+            config
+        });
+
 
         let window = Window::new("Main menu".to_string()).with_configs(configs).as_selected();
 

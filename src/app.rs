@@ -2,8 +2,10 @@ use std::error;
 
 use ratatui::{buffer::Buffer, layout::Rect};
 
+use gilrs::EventType as GamepadEventType;
+use tokio::sync::mpsc;
 
-use crate::pages::*;
+use crate::{event::Event, pages::*, tasks::{ControllerTask, DriverEvent, DriverTask}};
 
 /// Application result type.
 pub type AppResult<T> = std::result::Result<T, Box<dyn error::Error>>;
@@ -20,8 +22,9 @@ pub struct App {
     startup_page: StartupPage,
     controller_telem: ControllerTelem,
     control_panel: ControlPanel,
-    pub controller: Option<stick::Controller>,
-    //pub controller_task: Option<
+    controller_task: ControllerTask,
+    driver_task: DriverTask,
+    sender: Option<mpsc::UnboundedSender<Event>>,
 }
 
 impl Default for App {
@@ -35,7 +38,9 @@ impl Default for App {
             startup_page: StartupPage::new(),
             control_panel: ControlPanel::new(),
             controller_telem: ControllerTelem::new(),
-            controller: None,
+            controller_task: ControllerTask::new(),
+            driver_task: DriverTask::new(),
+            sender: None,
         }
     }
 }
@@ -52,6 +57,11 @@ impl App {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn add_sender(&mut self, sender: &mpsc::UnboundedSender<Event>) {
+        self.sender = Some(sender.clone());
+        self.driver_task.set_sender(sender.clone());
     }
 
     /// Handles the tick event of the terminal.
@@ -98,7 +108,16 @@ impl App {
         if let Some(result) = self.control_panel.select(){
             match result {
                 ControlResult::ChangePage(page) => self.change_page(page),
-                ControlResult::SetController(controller) => (),
+                ControlResult::SetController(controller) => {
+                    self.controller_task.add_sender(self.sender.as_ref().unwrap());
+                    self.controller_task.add_controller(controller);
+                    self.controller_task.add_task();
+                },
+                ControlResult::DriverChange(event) => {
+                    match event {
+                        _ => ()
+                    }
+                }
             }
         }
     }
@@ -114,9 +133,16 @@ impl App {
          self.control_panel.render(area, buf);
     }
 
+    pub fn handle_controller_event(&mut self, event: GamepadEventType){
+        self.controller_telem.add_telem(event);
+    }
 
     fn change_page(&mut self, page: Page){
         self.page = page;
+    }
+
+    pub fn handle_driver_event(&mut self, event: DriverEvent) {
+        
     }
 
 }
