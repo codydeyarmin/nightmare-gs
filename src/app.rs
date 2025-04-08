@@ -21,6 +21,7 @@ pub struct App {
     pub page: Page,
     startup_page: StartupPage,
     controller_telem: ControllerTelem,
+    driver_telem: DriverTelem,
     control_panel: ControlPanel,
     controller_task: ControllerTask,
     driver_task: DriverTask,
@@ -36,8 +37,9 @@ impl Default for App {
             display_y: None,
             page: Page::Startup,
             startup_page: StartupPage::new(),
-            control_panel: ControlPanel::new(),
             controller_telem: ControllerTelem::new(),
+            driver_telem: DriverTelem::new(),
+            control_panel: ControlPanel::new(),
             controller_task: ControllerTask::new(),
             driver_task: DriverTask::new(),
             sender: None,
@@ -115,6 +117,10 @@ impl App {
                 },
                 ControlResult::DriverChange(event) => {
                     match event {
+                        DriverEvent::SetPort(port) => {
+                            self.driver_task.set_port(port);
+                            self.driver_task.start_driver();
+                        }
                         _ => ()
                     }
                 }
@@ -126,10 +132,11 @@ impl App {
         match self.page {
             Page::Startup => self.startup_page.render(area, buf),
             Page::ControllerTelem => self.controller_telem.render(area, buf),
+            Page::DriverTelem => self.driver_telem.render(area, buf),
         }
     }
 
-    pub fn render_terminal_page(&self, area: Rect, buf: &mut Buffer) {
+    pub fn render_terminal_page(&mut self, area: Rect, buf: &mut Buffer) {
          self.control_panel.render(area, buf);
     }
 
@@ -142,7 +149,7 @@ impl App {
     }
 
     pub fn handle_driver_event(&mut self, event: DriverEvent) {
-        
+        self.driver_telem.add_telem(event);
     }
 
 }

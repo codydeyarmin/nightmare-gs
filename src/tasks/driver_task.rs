@@ -1,10 +1,11 @@
 use std::{fmt, io, time::Duration};
 
 use crate::{event::Event, pages::{Config, ConfigFnOptions, ControlResult, Window}};
-use serialport::{available_ports, Error as SerialPortError, DataBits, FlowControl, Parity, SerialPortBuilder, StopBits};
+use serialport::{available_ports, DataBits, Error as SerialPortError, FlowControl, Parity, SerialPort, SerialPortBuilder, StopBits};
 use tokio::sync::mpsc::{self, error::TryRecvError};
+use strum_macros::Display;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Display)]
 pub enum DriverState{
     Active,
     Connected,
@@ -72,6 +73,10 @@ impl DriverPort {
         let ports = available_ports()?;
         Ok(ports.iter().map( |port| port.port_name.to_string()).collect())
     }
+
+    pub fn to_serial_port(&self) -> SerialPortBuilder {
+        serialport::new(&self.port, self.baud)
+    }
 }
 
 #[derive(Debug)]
@@ -86,31 +91,32 @@ pub enum DriverEvent{
 #[derive(Debug)]
 pub struct Driver{
     state: DriverState,
-    port: Option<SerialPortBuilder>,
+    port: SerialPortBuilder,
     receiver:mpsc::UnboundedReceiver<DriverEvent>,
     sender: mpsc::UnboundedSender<Event>
 }
 
 impl Driver {
-    pub fn new(receiver:mpsc::UnboundedReceiver<DriverEvent>, sender: mpsc::UnboundedSender<Event>) -> Self {
+    pub fn new(receiver:mpsc::UnboundedReceiver<DriverEvent>, sender: mpsc::UnboundedSender<Event>, port: SerialPortBuilder) -> Self {
         Self { 
             state: DriverState::Active, 
-            port: None,
+            port,
             receiver, 
             sender}
     }
 
     pub fn run(&mut self){
         let mut requested_state: Option<DriverState> = None;
-        let mut port = self.port.take().unwrap().open();
-        if let Err(e) = port {
-            self.sender.send(Event::Driver(DriverEvent::Error(e))).unwrap();
-            return;
-        } 
-        if let Err(e) = port.unwrap().set_timeout(Duration::new(0, 1000000)){
-            self.sender.send(Event::Driver(DriverEvent::Error(e))).unwrap();
-            return;
-        }
+        // let mut port = self.port.open();
+        // if let Err(e) = port {
+        //     self.sender.send(Event::Driver(DriverEvent::Error(e))).unwrap();
+        //     return;
+        // } 
+        // if let Err(e) = port.unwrap().set_timeout(Duration::new(0, 1000000)){
+        //     self.sender.send(Event::Driver(DriverEvent::Error(e))).unwrap();
+        //     return;
+        // }
+        let mut count: usize = 0;
         loop {
             let sleep_time = Duration::from_millis(1);
             match self.receiver.try_recv() {
@@ -132,16 +138,28 @@ impl Driver {
             }
             match &self.state {
                 DriverState::Active => {
-                    
+                    count += 1;
+                    if count % 1000 == 0{
+                        self.state = DriverState::Connected;
+                    }
                 },
                 DriverState::Connected => {
-
+                    count += 1;
+                    if count % 1000 == 0{
+                        self.state = DriverState::Disabled;
+                    }
                 },
                 DriverState::Disabled => {
-
+                    count += 1;
+                    if count % 1000 == 0{
+                        self.state = DriverState::Enabled;
+                    }
                 },
                 DriverState::Enabled => {
-
+                    count += 1;
+                    if count % 1000 == 0{
+                        self.state = DriverState::Active;
+                    }
                 }
             }
             self.sender.send(Event::Driver(DriverEvent::StateReport(self.state))).unwrap();
@@ -196,7 +214,7 @@ impl DriverTask{
     }
 
     pub fn start_driver(&mut self) -> Result<(), DriverError> {
-        if self.port.is_none() || self.event_sender.is_none() {
+        if self.port.is_none() || self.event_sender.is_none() || self.port.is_none() {
             return Err(DriverError::NoPortSet);
         }
         if let Some(_) = self.task {
@@ -205,8 +223,9 @@ impl DriverTask{
         }
         let to_driver_receiver = self.to_driver_receiver.take().unwrap();
         let sender = self.event_sender.take().unwrap();
+        let port = self.port.take().unwrap();
         tokio::spawn(async move {
-            let mut driver = Driver::new(to_driver_receiver, sender);
+            let mut driver = Driver::new(to_driver_receiver, sender, port.to_serial_port());
             loop {
                 driver.run();
             }
@@ -225,7 +244,8 @@ impl DriverTask{
                     ConfigFnOptions::ConfigToNone(|config| 
                             Some(ControlResult::DriverChange(DriverEvent::SetPort(config.get_short_text().to_string())))
                 )
-                )).collect()
+                )
+            ).collect()
             ),
         None)
     }

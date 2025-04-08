@@ -1,6 +1,6 @@
 
 use ratatui::{
-    buffer::Buffer, layout::{Alignment, Constraint, Layout, Rect}, style::{ Style, Stylize}, text::{Line, Text}, widgets::{Block, BorderType, Widget,}
+    buffer::Buffer, layout::{Alignment, Constraint, Layout, Rect}, style::{ Style, Stylize}, text::{Line, Text}, widgets::{Block, BorderType, List, ListDirection, ListState, StatefulWidget, Widget}
 };
 
 use crate::{page_functions::*, tasks::{DriverEvent, DriverTask}};
@@ -85,7 +85,8 @@ pub struct Window {
     content: Vec<Config>,
     window_selected: bool,
     highlighted_content: u16,
-    selected_content: Option<u16>,
+    // selected_content: Option<u16>,
+    list_state: ListState,
 
 }
 
@@ -96,7 +97,8 @@ impl Window {
             content: Vec::new(),
             window_selected: false,
             highlighted_content: 0,
-            selected_content: None,
+            // selected_content: None,
+            list_state: ListState::default(),
         }
     }
 
@@ -110,7 +112,7 @@ impl Window {
         self
     }
 
-    pub fn render(&self, area: Rect, buf: &mut Buffer, next_panes: Vec<Rect>){
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer, next_panes: Vec<Rect>){
         let mut style =  Style::default();
         if self.window_selected {
             style = style.light_cyan();
@@ -122,30 +124,41 @@ impl Window {
             .border_style(style);
         let inner_area  = frame.inner(area);
         frame.render(area, buf);
-        let mut text = Text::default();
-        let mut idx: u16 = 0;
-        for i in &self.content {
-            let mut style = Style::default();
-            let mut checkbox = "[ ] ";
-            if idx == self.highlighted_content {
-                style = style.light_cyan();
-            }
-            if let Some(selected_content) = self.selected_content {
-                if idx == selected_content {
-                    checkbox = "[x] ";
-                }
-            }
-            let line = Line::from(
-                format!("{}{}", checkbox, i.get_short_text())      
-                ).style(style);
-            text.push_line(line);
+        let items: Vec<String> = self.content.iter().map(|config| 
+            config.get_short_text().to_string()).collect();
+        let list = List::new(items)
+            // .block(Block::bordered()
+            // .title(self.name.as_ref())
+            // .title_alignment(Alignment::Center)
+            // .style(style))
+            .style(Style::default())
+            .highlight_style(Style::new().italic())
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::TopToBottom);
+        // let mut idx: u16 = 0;
+        // for i in &self.content {
+        //     let mut style = Style::default();
+        //     let mut checkbox = "[ ] ";
+        //     if idx == self.highlighted_content {
+        //         style = style.light_cyan();
+        //     }
+        //     if let Some(selected_content) = self.selected_content {
+        //         if idx == selected_content {
+        //             checkbox = "[x] ";
+        //         }
+        //     }
+        //     let line = Line::from(
+        //         format!("{}{}", checkbox, i.get_short_text())      
+        //         ).style(style);
+        //     text.push_line(line);
 
-            idx += 1;
-        }
+        //     idx += 1;
+        // }
         let mut next_panes = next_panes.clone();
         if let Some(pane) = next_panes.pop(){
-            if let Some(selected_content) = self.selected_content{
-                match &self.content[selected_content as usize].option{
+            if let Some(selected_content) = self.list_state.selected(){
+                match &mut self.content[selected_content as usize].option{
                     ConfigOption::Window(window) => {
                         window.render(pane, buf, next_panes);
                     },
@@ -153,17 +166,25 @@ impl Window {
                 }
             }
         }
-        text.render(inner_area, buf);
+        //list.render(area, buf);
+        StatefulWidget::render(list, inner_area, buf, &mut self.list_state);
 
     }
 
     pub fn next_item(&mut self) {
         if self.window_selected && self.content.len() != 0 {
-            if self.window_selected {
-                self.highlighted_content = (self.highlighted_content + 1) % self.content.len() as u16;
-            } 
+            // if self.window_selected {
+            //     self.highlighted_content = (self.highlighted_content + 1) % self.content.len() as u16;
+            // } 
+            if let Some(selected_content) = self.list_state.selected(){
+                if selected_content != self.content.len() - 1{
+                    self.list_state.select_next();
+                }
+            }else {
+                self.list_state.select_next();
+            }
         } else {
-            if let Some(selected_content) = self.selected_content{
+            if let Some(selected_content) = self.list_state.selected(){
                 match &mut self.content[selected_content as usize].option{
                     ConfigOption::Window(window) => {
                         window.next_item()
@@ -173,19 +194,24 @@ impl Window {
             }
             
         }
-        
-        
     }
 
     pub fn previous_item(&mut self) {
         if self.window_selected {
-            if self.highlighted_content == 0 {
-                self.highlighted_content = self.content.len().saturating_sub(1) as u16;
+            if let Some(selected_content) = self.list_state.selected(){
+                if selected_content != 0{
+                    self.list_state.select_previous();
+                }
             }else {
-                self.highlighted_content = self.highlighted_content.saturating_sub(1);
+                self.list_state.select_first();
             }
+            // if self.highlighted_content == 0 {
+            //     self.highlighted_content = self.content.len().saturating_sub(1) as u16;
+            // }else {
+            //     self.highlighted_content = self.highlighted_content.saturating_sub(1);
+            // }
         } else {
-            if let Some(selected_content) = self.selected_content{
+            if let Some(selected_content) = self.list_state.selected(){
                 match &mut self.content[selected_content as usize].option{
                     ConfigOption::Window(window) => {
                         window.previous_item()
@@ -199,8 +225,8 @@ impl Window {
 
     pub fn select(&mut self) -> Option<ControlResult>{
         if self.window_selected {
-            self.selected_content = Some(self.highlighted_content);
-            if let Some(selected_content) = self.selected_content{
+            // self.selected_content = Some(self.highlighted_content);
+            if let Some(selected_content) = self.list_state.selected(){
                 if let Some(config_fn_option) = self.content[selected_content as usize].on_select.clone(){
                     match config_fn_option {
                         ConfigFnOptions::NoneToWindow(function) => {
@@ -236,7 +262,7 @@ impl Window {
                 None
             }
         } else {
-            if let Some(selected_content) = self.selected_content{
+            if let Some(selected_content) = self.list_state.selected(){
                 match &mut self.content[selected_content as usize].option{
                     ConfigOption::Window(window) => {
                         window.select()
@@ -250,7 +276,7 @@ impl Window {
     }
 
     pub fn select_window(&mut self, selected_window: u16) -> u16{
-        if let Some(selected_content) = self.selected_content{
+        if let Some(selected_content) = self.list_state.selected(){
             match &mut self.content[selected_content as usize].option{
                 ConfigOption::Window(window) => {
                     if selected_window == 0 {
@@ -337,7 +363,7 @@ impl ControlPanel {
     }
 
 
-    pub fn render(&self, area: Rect, buf: &mut Buffer) {
+    pub fn render(&mut self, area: Rect, buf: &mut Buffer) {
         let mut info_text: Option<String> = None;
         let split = Layout::vertical([
             Constraint::Percentage(20),
